@@ -1,0 +1,6 @@
+syntax = "proto3";
+option optimize_for = LITE_RUNTIME;
+
+message Hello {
+    optional string name = 1;
+}
