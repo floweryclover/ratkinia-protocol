@@ -1,0 +1,9 @@
+syntax = "proto3";
+option optimize_for = LITE_RUNTIME;
+
+package RatkiniaProtocol.Stc;
+
+message LoginResponse {
+    bool successful = 1;
+    optional string failure_reason = 2;
+}
