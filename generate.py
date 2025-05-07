@@ -4,6 +4,12 @@ import glob
 import re
 from google.protobuf import descriptor_pb2
 
+import sys
+
+force_override = False
+if 'force_override' in sys.argv:
+    force_override = True
+
 # 경로 설정
 proto_input_dir = "In"
 proto_output_dir = "Out"
@@ -48,116 +54,146 @@ def cpp_type(field):
     # 필요에 따라 나머지 타입도 매핑
     return "/* unknown_type */"
 
-def generate_protocol_header():
-    with open("Out\\RatkiniaProtocol.h", "w", encoding="utf-8") as out:
+def generate_protocol():
+    # RatkiniaProtocol
+    with open("Out\\RatkiniaProtocol.gen.h", "w", encoding="utf-8") as out:
         fds = descriptor_pb2.FileDescriptorSet()
         with open(f"{proto_output_dir}\\all.desc", 'rb') as f:
             fds.ParseFromString(f.read())
 
-        out.write("#ifndef RATKINIA_PROTOCOL_H\n#define RATKINIA_PROTOCOL_H\n")
-        out.write("// desc 파일로부터 자동 생성됨.\n\n")
-        for file_proto in fds.file:
-            out.write(f"#include \"{os.path.splitext(os.path.basename(file_proto.name))[0]}.pb.h\"\n")
+        out.write("// Auto-generated from all.desc.\n\n")
+        out.write("#ifndef RATKINIA_PROTOCOL_H\n#define RATKINIA_PROTOCOL_H\n\n")
         out.write("#include <cstdint>\n\n")
-        out.write("namespace RatkiniaProtocol\n{\n")
+        out.write("namespace RatkiniaProtocol\n")
+        out.write("{\n")
         out.write("    struct MessageHeader final\n")
         out.write("    {\n")
         out.write("        uint16_t MessageType;\n")
         out.write("        uint16_t BodyLength;\n")
         out.write("    };\n\n")
         out.write("    constexpr size_t MessageMaxSize = 65535 + sizeof(MessageHeader);\n")
-        out.write("    constexpr size_t MessageHeaderSize = sizeof(MessageHeader);\n}\n\n")
-        
-        for file_proto in fds.file:
-            # 네임스페이스 이름: 파일명 (확장자 제외)
-            ns = os.path.splitext(os.path.basename(file_proto.name))[0]
+        out.write("    constexpr size_t MessageHeaderSize = sizeof(MessageHeader);\n")
 
-            # 핸들러 시그니처 정의
-            for msg in file_proto.message_type:
-                params = []
-                for field in msg.field:
-                    pname = field.name
-                    ptype = cpp_type(field)
-                    params.append(f"{ptype} {pname}")
-                param_list = ", ".join(params)
-                out.write(f"#define {ns.upper()}_{msg.name.upper()}_HANDLER bool On{msg.name}(const uint64_t context")
-                if params:
-                    out.write(", " + ", ".join(f"{p}" for p in params))
-                out.write(")\n")
-            out.write("\n")
-        
-            # 네임스페이스 정의
-            out.write(f"namespace RatkiniaProtocol::{ns} \n{{\n")
-            out.write("    enum class MessageType : uint16_t \n    {\n")
-            
-            # 메시지 enum 정의 
+        # 메시지 enum 정의 
+        for file_proto in fds.file:
+            out.write(f"\n    enum class {os.path.splitext(os.path.basename(file_proto.name))[0]}MessageType : uint16_t\n")
+            out.write("    {\n")
             for idx, msg in enumerate(file_proto.message_type):
                 out.write(f"        {msg.name} = {idx},\n")
-            out.write("    };\n\n")
+            out.write("    };\n")
+        out.write("}\n\n")
+        out.write(f"#endif")
 
-            # 핸들러 디스패처 정의
-            out.write(f"    template<typename T{ns}Handler>\n")
-            out.write(f"    bool Handle{ns}(\n")
-            out.write(f"        T{ns}Handler& {ns}Handler,\n")
-            out.write(f"        const uint64_t context,\n")
-            out.write(f"        const uint16_t messageType,\n")
-            out.write(f"        const uint16_t bodySize,\n")
-            out.write(f"        const char* const body)\n")
+    # proto별 Stub, Proxy
+    for file_proto in fds.file:
+        # 네임스페이스 이름: 파일명 (확장자 제외)
+        ns = os.path.splitext(os.path.basename(file_proto.name))[0]
+
+
+        # Stub
+        with open(f"Out\\{ns}Stub.gen.h", "w", encoding="utf-8") as out:
+            out.write("// Auto-generated from all.desc.\n\n")
+            out.write(f"#ifndef {ns.upper()}STUB_GEN_H\n")
+            out.write(f"#define {ns.upper()}STUB_GEN_H\n\n")
+            out.write("#include \"RatkiniaProtocol.gen.h\"\n")
+            out.write(f"#include \"{ns}.pb.h\"\n\n")
+
+            out.write(f"namespace RatkiniaProtocol \n")
+            out.write(f"{{\n")
+            out.write(f"    template<typename TDerivedStub>\n")
+            out.write(f"    class {ns}Stub\n")
             out.write(f"    {{\n")
-            out.write(f"        switch (static_cast<int32_t>(messageType))\n")
-            out.write(f"        {{\n")
+            out.write(f"    public:\n")
+            out.write(f"        virtual ~{ns}Stub() = default;\n\n")
+            out.write(f"        virtual void OnUnknownMessageType(uint64_t context, {ns}MessageType messagetType) = 0;\n\n")
+            out.write(f"        virtual void OnParseMessageFailed(uint64_t context, {ns}MessageType messagetType) = 0;\n\n")
+            if not force_override:
+                out.write(f"        virtual void OnUnhandledMessageType(uint64_t context, {ns}MessageType messagetType) = 0;\n\n")
 
             for msg in file_proto.message_type:
+                params = []
                 args = []
                 for field in msg.field:
                     pname = field.name
                     ptype = cpp_type(field)
+                    params.append(f"{ptype} {pname}")
                     args.append(pname)
-                arg_list   = ", ".join(args)
+                param_list = ", ".join(params)
+                out.write(f"        virtual void On{msg.name}(uint64_t context")
+                if params:
+                    out.write(", " + param_list)
+                if force_override:
+                    out.write(f") = 0;\n\n")
+                else:
+                    out.write(f") {{ static_cast<TDerivedStub*>(this)->OnUnhandledMessageType(context, {ns}MessageType::{msg.name}); }}\n\n")
 
-                out.write(f"            case static_cast<int32_t>(MessageType::{msg.name}):\n")
-                out.write(f"            {{\n")
-                out.write(f"                {msg.name} {msg.name}Message;\n")
-                out.write(f"                if (!{msg.name}Message.ParseFromArray(body, bodySize))\n")
+            out.write(f"        void Handle{ns}(\n")
+            out.write(f"            const uint64_t context,\n")
+            out.write(f"            const uint16_t messageType,\n")
+            out.write(f"            const uint16_t bodySize,\n")
+            out.write(f"            const char* const body)\n")
+            out.write(f"        {{\n")
+            out.write(f"            switch (static_cast<int32_t>(messageType))\n")
+            out.write(f"            {{\n")
+
+            for msg in file_proto.message_type:
+                params = []
+                args = []
+                for field in msg.field:
+                    pname = field.name
+                    ptype = cpp_type(field)
+                    params.append(f"{ptype} {pname}")
+                    args.append(pname)
+                param_list = ", ".join(params)
+
+                out.write(f"                case static_cast<int32_t>({ns}MessageType::{msg.name}):\n")
                 out.write(f"                {{\n")
-                out.write(f"                    {ns}Handler.OnParseMessageFailed(context, messageType);\n")
-                out.write(f"                    return false;\n")
-                out.write(f"                }}\n")
-                out.write(f"                return {ns}Handler.On{msg.name}(context")
+                out.write(f"                    {msg.name} {msg.name}Message;\n")
+                out.write(f"                    if (!{msg.name}Message.ParseFromArray(body, bodySize))\n")
+                out.write(f"                    {{\n")
+                out.write(f"                        static_cast<TDerivedStub*>(this)->OnParseMessageFailed(context, static_cast<{ns}MessageType>(messageType));\n")
+                out.write(f"                        return;\n")
+                out.write(f"                    }}\n")
+                out.write(f"                    static_cast<TDerivedStub*>(this)->On{msg.name}(context")
                 if params:
                     out.write(", " + ", ".join(f"{msg.name}Message.{a}()" for a in args))
                 out.write(");\n")
-                out.write(f"            }}\n\n")
+                out.write(f"                }}\n")
 
-            out.write(f"        {ns}Handler.OnUnknownMessageType(context, messageType);\n")
-            out.write(f"        return false;\n")
+            out.write(f"            }}\n\n")
+            out.write(f"            static_cast<TDerivedStub*>(this)->OnUnknownMessageType(context, static_cast<{ns}MessageType>(messageType));\n")
             out.write(f"        }}\n")
-            out.write(f"    }}\n\n")
+            out.write(f"    }};\n")
+            out.write(f"}}\n")
+            out.write(f"#endif")
 
-            # 메시지 직렬화 함수 정의
-            params = []
-            for field in msg.field:
-                pname = field.name
-                ptype = cpp_type(field)
-                params.append(f"{ptype} {pname}")
-            param_list = ", ".join(params)
+        # Proxy
+        with open(f"Out\\{ns}Proxy.gen.h", "w", encoding="utf-8") as out:
+            out.write("// Auto-generated from all.desc.\n\n")
+            out.write(f"#ifndef {ns.upper()}PROXY_GEN_H\n")
+            out.write(f"#define {ns.upper()}PROXY_GEN_H\n\n")
+            out.write(f"#include \"{ns}.pb.h\"\n")
+            out.write("#include \"RatkiniaProtocol.gen.h\"\n\n")
 
-            out.write(f"    template<typename T{ns}Writer>\n")
-            out.write(f"    bool Write{msg.name}To(T{ns}Writer& {ns}Writer, {param_list})\n")
+            out.write(f"namespace RatkiniaProtocol \n")
+            out.write(f"{{\n")
+            out.write(f"    template<typename TDerivedProxy>\n")
+            out.write(f"    class {ns}Proxy\n")
             out.write(f"    {{\n")
-            out.write(f"        {msg.name} {msg.name}Message;\n")
+            out.write(f"    public:\n")
+            out.write(f"        void {msg.name}(const uint64_t context, {param_list})\n")
+            out.write(f"        {{\n")
+            out.write(f"            class {msg.name} {msg.name}Message;\n")
             for field in msg.field:
-                out.write(f"        {msg.name}Message.set_{field.name}({field.name});\n")
-            out.write(f"        return {ns}Writer.WriteMessage({msg.name}Message);\n")
-            out.write(f"    }}\n")
-
+                out.write(f"            {msg.name}Message.set_{field.name}({field.name});\n")
+            out.write(f"            static_cast<TDerivedProxy*>(this)->WriteMessage(context, {ns}MessageType::{msg.name}, {msg.name}Message);\n")
+            out.write(f"        }}\n")
+            out.write(f"    }};\n")
             out.write("}\n\n")
-
-        out.write(f"#endif")
+            out.write(f"#endif")
 
 # .proto 파일들을 찾기
 proto_files = glob.glob(os.path.join(proto_input_dir, "*.proto"))
 run_protoc()
-
-generate_protocol_header()
+generate_protocol()
 
