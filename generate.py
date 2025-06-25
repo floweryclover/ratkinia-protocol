@@ -48,7 +48,18 @@ def cpp_type(field):
         return "const std::string&"
     if t == descriptor_pb2.FieldDescriptorProto.TYPE_BOOL:
         return "const bool"
-    # 메시지 타입이면 그대로 레퍼런스
+    if t == descriptor_pb2.FieldDescriptorProto.TYPE_ENUM:
+        full_enum_path = field.type_name.lstrip('.')
+        cpp_enum_name = full_enum_path.replace('.', '::') 
+        parts = field.type_name.split('.')
+        if len(parts) >= 2:
+            if parts[-2] and parts[-1]:
+                cpp_enum_name = f"{parts[-2]}_{parts[-1]}"
+            else:
+                cpp_enum_name = parts[-1]
+        else:
+            cpp_enum_name = parts[-1]
+        return f"const {cpp_enum_name}"
     if t == descriptor_pb2.FieldDescriptorProto.TYPE_MESSAGE:
         return f"const {field.type_name.split('.')[-1]}&"
     # 필요에 따라 나머지 타입도 매핑
@@ -105,10 +116,10 @@ def generate_protocol():
             out.write(f"    {{\n")
             out.write(f"    public:\n")
             out.write(f"        virtual ~{ns}Stub() = default;\n\n")
-            out.write(f"        virtual void OnUnknownMessageType(uint64_t context, {ns}MessageType messagetType) = 0;\n\n")
-            out.write(f"        virtual void OnParseMessageFailed(uint64_t context, {ns}MessageType messagetType) = 0;\n\n")
+            out.write(f"        virtual void OnUnknownMessageType(uint64_t context, {ns}MessageType messageType) = 0;\n\n")
+            out.write(f"        virtual void OnParseMessageFailed(uint64_t context, {ns}MessageType messageType) = 0;\n\n")
             if not force_override:
-                out.write(f"        virtual void OnUnhandledMessageType(uint64_t context, {ns}MessageType messagetType) = 0;\n\n")
+                out.write(f"        virtual void OnUnhandledMessageType(uint64_t context, {ns}MessageType messageType) = 0;\n\n")
 
             for msg in file_proto.message_type:
                 params = []
@@ -158,10 +169,15 @@ def generate_protocol():
                 if params:
                     out.write(", " + ", ".join(f"{msg.name}Message.{a}()" for a in args))
                 out.write(");\n")
+                out.write(f"                    return;\n")
                 out.write(f"                }}\n")
 
+            out.write(f"                default:\n")
+            out.write(f"                {{\n")
+            out.write(f"                    static_cast<TDerivedStub*>(this)->OnUnknownMessageType(context, static_cast<{ns}MessageType>(messageType));\n")
+            out.write(f"                    return;\n")
+            out.write(f"                }}\n")
             out.write(f"            }}\n\n")
-            out.write(f"            static_cast<TDerivedStub*>(this)->OnUnknownMessageType(context, static_cast<{ns}MessageType>(messageType));\n")
             out.write(f"        }}\n")
             out.write(f"    }};\n")
             out.write(f"}}\n")
@@ -180,14 +196,23 @@ def generate_protocol():
             out.write(f"    template<typename TDerivedProxy>\n")
             out.write(f"    class {ns}Proxy\n")
             out.write(f"    {{\n")
-            out.write(f"    public:\n")
-            out.write(f"        void {msg.name}(const uint64_t context, {param_list})\n")
-            out.write(f"        {{\n")
-            out.write(f"            class {msg.name} {msg.name}Message;\n")
-            for field in msg.field:
-                out.write(f"            {msg.name}Message.set_{field.name}({field.name});\n")
-            out.write(f"            static_cast<TDerivedProxy*>(this)->WriteMessage(context, {ns}MessageType::{msg.name}, {msg.name}Message);\n")
-            out.write(f"        }}\n")
+            out.write(f"    public:")
+            for msg in file_proto.message_type:
+                params = []
+                args = []
+                for field in msg.field:
+                    pname = field.name
+                    ptype = cpp_type(field)
+                    params.append(f"{ptype} {pname}")
+                    args.append(pname)
+                param_list = ", ".join(params)
+                out.write(f"\n        void {msg.name}(const uint64_t context, {param_list})\n")
+                out.write(f"        {{\n")
+                out.write(f"            class {msg.name} {msg.name}Message;\n")
+                for field in msg.field:
+                    out.write(f"            {msg.name}Message.set_{field.name}({field.name});\n")
+                out.write(f"            static_cast<TDerivedProxy*>(this)->WriteMessage(context, {ns}MessageType::{msg.name}, {msg.name}Message);\n")
+                out.write(f"        }}\n")
             out.write(f"    }};\n")
             out.write("}\n\n")
             out.write(f"#endif")
