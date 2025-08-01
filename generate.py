@@ -116,10 +116,10 @@ def generate_protocol():
             out.write(f"    {{\n")
             out.write(f"    public:\n")
             out.write(f"        virtual ~{ns}Stub() = default;\n\n")
-            out.write(f"        virtual void OnUnknownMessageType(uint64_t context, {ns}MessageType messageType) = 0;\n\n")
-            out.write(f"        virtual void OnParseMessageFailed(uint64_t context, {ns}MessageType messageType) = 0;\n\n")
+            out.write(f"        virtual void OnUnknownMessageType(uint32_t context, {ns}MessageType messageType) = 0;\n\n")
+            out.write(f"        virtual void OnParseMessageFailed(uint32_t context, {ns}MessageType messageType) = 0;\n\n")
             if not force_override:
-                out.write(f"        virtual void OnUnhandledMessageType(uint64_t context, {ns}MessageType messageType) = 0;\n\n")
+                out.write(f"        virtual void OnUnhandledMessageType(uint32_t context, {ns}MessageType messageType) = 0;\n\n")
 
             for msg in file_proto.message_type:
                 params = []
@@ -130,7 +130,7 @@ def generate_protocol():
                     params.append(f"{ptype} {pname}")
                     args.append(pname)
                 param_list = ", ".join(params)
-                out.write(f"        virtual void On{msg.name}(uint64_t context")
+                out.write(f"        virtual void On{msg.name}(uint32_t context")
                 if params:
                     out.write(", " + param_list)
                 if force_override:
@@ -139,7 +139,7 @@ def generate_protocol():
                     out.write(f") {{ static_cast<TDerivedStub*>(this)->OnUnhandledMessageType(context, {ns}MessageType::{msg.name}); }}\n\n")
 
             out.write(f"        void Handle{ns}(\n")
-            out.write(f"            const uint64_t context,\n")
+            out.write(f"            const uint32_t context,\n")
             out.write(f"            const uint16_t messageType,\n")
             out.write(f"            const uint16_t bodySize,\n")
             out.write(f"            const char* const body)\n")
@@ -206,7 +206,7 @@ def generate_protocol():
                     params.append(f"{ptype} {pname}")
                     args.append(pname)
                 param_list = ", ".join(params)
-                out.write(f"\n        void {msg.name}(const uint64_t context, {param_list})\n")
+                out.write(f"\n        void {msg.name}(const uint32_t context, {param_list})\n")
                 out.write(f"        {{\n")
                 out.write(f"            class {msg.name} {msg.name}Message;\n")
                 for field in msg.field:
