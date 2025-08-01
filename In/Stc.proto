@@ -5,5 +5,15 @@ package RatkiniaProtocol;
 
 message LoginResponse {
     bool successful = 1;
-    optional string failure_reason = 2;
+    string failure_reason = 2;
+}
+
+message RegisterResponse {
+    enum FailedReason {
+        Success = 0;
+        ExistingUserId = 1;
+        WrongPassword = 2;
+    }
+
+    FailedReason failed_reason = 1;
 }
