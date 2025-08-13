@@ -2,6 +2,7 @@ import os
 import subprocess
 import glob
 import re
+import datetime
 from google.protobuf import descriptor_pb2
 
 import sys
@@ -13,7 +14,6 @@ class ParsedMessage:
 
         if len(self.fields) == 0:
             self.fields = None
-
 
 for_client = False
 if 'for_client' in sys.argv:
@@ -28,7 +28,7 @@ uint64_type = "uint64" if for_client else "uint64_t"
 string_type = "FString" if for_client else "std::string"
 bool_type = "bool"
 context_parameter = "uint32_t context, " if not for_client else ""
-context_parameter_definition = "const uint32_t context,\n" if not for_client else ""
+context_parameter_definition = "const uint32_t context, " if not for_client else ""
 context_argument = "context, " if not for_client else ""
 message_type_name = "MessageType" if for_client else "messageType"
 body_size_name = "BodySize" if for_client else "bodySize"
@@ -37,6 +37,11 @@ body_name = "Body" if for_client else "body"
 proto_input_dir = "In"
 proto_output_dir = "Out"
 proto_files = []
+
+def write_top_comment(out):
+    today = datetime.date.today()
+    formatted_date = today.strftime('%Y. %m. %d.')
+    out.write(f"// Auto-generated from Ratkinia Protocol Generator on {formatted_date}\n\n")
 
 def snake_to_camel(snake_case_string):
     return re.sub(r'_([a-z])', lambda x: x.group(1).upper(), snake_case_string)
@@ -98,7 +103,7 @@ def generate_protocol():
         with open(f"{proto_output_dir}\\all.desc", 'rb') as f:
             fds.ParseFromString(f.read())
 
-        out.write("// Auto-generated from Ratkinia Protocol Generator.\n\n")
+        write_top_comment(out)
         out.write("#ifndef RATKINIA_PROTOCOL_H\n#define RATKINIA_PROTOCOL_H\n\n")
         out.write("#include <cstdint>\n\n")
         out.write("namespace RatkiniaProtocol\n")
@@ -132,7 +137,7 @@ def generate_protocol():
 
         # Stub
         with open(f"Out\\{ns}Stub.gen.h", "w", encoding="utf-8") as out:
-            out.write("// Auto-generated from Ratkinia Protocol Generator.\n\n")
+            write_top_comment(out)
             out.write(f"#ifndef {ns.upper()}STUB_GEN_H\n")
             out.write(f"#define {ns.upper()}STUB_GEN_H\n\n")
             out.write("#include \"RatkiniaProtocol.gen.h\"\n")
@@ -158,13 +163,8 @@ def generate_protocol():
                         type_name = parameter_type(field)
                         param_name = snake_to_pascal(field.name) if for_client else snake_to_camel(field.name)
 
-                        # const 붙이기
-                        if not for_client or field.type != descriptor_pb2.FieldDescriptorProto.TYPE_STRING:
-                            type_name = "const " + type_name
-
-                        # & 붙이기
                         if not for_client and field.type == descriptor_pb2.FieldDescriptorProto.TYPE_STRING:
-                            type_name += "&"
+                            type_name = "const " + type_name + "&"
 
                         # 언리얼 bool b 접두사 붙이기
                         if for_client and field.type == descriptor_pb2.FieldDescriptorProto.TYPE_BOOL:
@@ -177,24 +177,12 @@ def generate_protocol():
                 else:
                     out.write(f") {{ static_cast<TDerivedStub*>(this)->OnUnhandledMessageType({ns}MessageType::{msg.name}); }}\n\n")
 
-            out.write(f"        void Handle{ns}(\n")
-            out.write(f"{context_parameter_definition}")
-            out.write(f"            const " + uint16_type + " " + message_type_name + ",\n")
-            out.write(f"            const " + uint16_type + " " + body_size_name + ",\n")
-            out.write(f"            const char* const " + body_name + ")\n")
+            out.write(f"        void Handle{ns}({context_parameter_definition}const " + uint16_type + " " + message_type_name + ", const " + uint16_type + " " + body_size_name + ", const char* const " + body_name + ")\n")
             out.write(f"        {{\n")
             out.write(f"            switch (static_cast<int32_t>(" + message_type_name + "))\n")
             out.write(f"            {{\n")
 
             for msg in parsed_messages:
-                # args = []
-                # for field in msg.field:
-                #     pname = field.name
-                #     if for_client and field.type == descriptor_pb2.FieldDescriptorProto.TYPE_STRING:
-                #         args.append("FString{UTF8_TO_TCHAR(" + field.name + ".c_str())}")
-                #     else:
-                #         args.append(pname)
-
                 out.write(f"                case static_cast<int32_t>({ns}MessageType::{msg.name}):\n")
                 out.write(f"                {{\n")
                 out.write(f"                    {msg.name} {msg.name}Message;\n")
@@ -229,7 +217,7 @@ def generate_protocol():
 
         # Proxy
         with open(f"Out\\{ns}Proxy.gen.h", "w", encoding="utf-8") as out:
-            out.write("// Auto-generated from all.desc.\n\n")
+            write_top_comment(out)
             out.write(f"#ifndef {ns.upper()}PROXY_GEN_H\n")
             out.write(f"#define {ns.upper()}PROXY_GEN_H\n\n")
             out.write(f"#include \"{ns}.pb.h\"\n")
@@ -241,13 +229,6 @@ def generate_protocol():
             out.write(f"    class {ns}Proxy\n")
             out.write(f"    {{\n")
             out.write(f"    public:")
-            # for msg in file_proto.message_type:
-            #     params = []
-            #     for field in msg.field:
-            #         ptype = parameter_type(field)
-            #         pname = snake_to_pascal(field.name) if for_client else snake_to_camel(field.name)
-            #         params.append(f"{ptype} {pname}")
-            #     param_list = ", ".join(params)
             for msg in parsed_messages:
                 if msg.fields:
                     params = []
@@ -282,7 +263,6 @@ def generate_protocol():
             out.write("}\n\n")
             out.write(f"#endif")
 
-# .proto 파일들을 찾기
 proto_files = glob.glob(os.path.join(proto_input_dir, "*.proto"))
 run_protoc()
 generate_protocol()
