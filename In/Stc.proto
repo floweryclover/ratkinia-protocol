@@ -4,16 +4,17 @@ option optimize_for = LITE_RUNTIME;
 package RatkiniaProtocol;
 
 message LoginResponse {
-    bool successful = 1;
-    string failure_reason = 2;
+    enum LoginResult
+    {
+        Success = 0;
+        Failure = 1;
+        DuplicateContext = 2;
+        DuplicateAccount = 3;
+    };
+    LoginResult result = 1;
 }
 
 message RegisterResponse {
-    enum FailedReason {
-        Success = 0;
-        ExistingUserId = 1;
-        WrongPassword = 2;
-    }
-
-    FailedReason failed_reason = 1;
+    bool successful = 1;
+    string failed_reason = 2;
 }

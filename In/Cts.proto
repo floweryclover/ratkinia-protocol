@@ -5,10 +5,10 @@ package RatkiniaProtocol;
 
 message LoginRequest {
     string id = 1;
-    string hashed_password = 2;
+    string password = 2;
 }
 
 message RegisterRequest {
     string id = 1;
-    string hashed_password = 2;
+    string password = 2;
 }
