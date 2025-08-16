@@ -3,6 +3,7 @@ import subprocess
 import glob
 import re
 import datetime
+import shutil
 from google.protobuf import descriptor_pb2
 
 import sys
@@ -34,14 +35,31 @@ message_type_name = "MessageType" if for_client else "messageType"
 body_size_name = "BodySize" if for_client else "bodySize"
 body_name = "Body" if for_client else "body"
 
-proto_input_dir = "In"
-proto_output_dir = "Out"
 proto_files = []
+input_dir = "In"
+output_dir = "Out\\Client" if for_client else "Out\\Server"
+copy_base_dir = "..\\ratkinia-client\\Source\\Ratkinia" if for_client else "..\\ratkinia-server\\Source\RatkiniaProtocol"
+
+def copy_to_target():
+    for filename in os.listdir(output_dir):
+        source_path = os.path.join(output_dir, filename)
+
+        if os.path.isfile(source_path):
+            copy_dir = copy_base_dir
+            _, ext = os.path.splitext(filename)
+            if for_client:
+                if ext == ".h":
+                    copy_dir = os.path.join(copy_base_dir, "Public", "RatkiniaProtocol")
+                else:
+                    copy_dir = os.path.join(copy_base_dir, "Private", "RatkiniaProtocol")
+            dest_path = os.path.join(copy_dir, filename)
+            shutil.copy2(source_path, dest_path)
+            print(f"파일 복사 완료: '{filename}'")
 
 def write_top_comment(out):
-    today = datetime.date.today()
-    formatted_date = today.strftime('%Y. %m. %d.')
-    out.write(f"// Auto-generated from Ratkinia Protocol Generator on {formatted_date}\n\n")
+    now = datetime.datetime.now()
+    formatted_date = now.strftime('%Y. %m. %d. %H:%M')
+    out.write(f"// {formatted_date}. Ratkinia Protocol Generator에 의해 생성됨.\n\n")
 
 def snake_to_camel(snake_case_string):
     return re.sub(r'_([a-z])', lambda x: x.group(1).upper(), snake_case_string)
@@ -52,20 +70,20 @@ def snake_to_pascal(snake_case_string):
     return ''.join(pascal_words)
 
 def run_protoc():
-    if os.path.exists(proto_output_dir):
-        print(f"출력 폴더 비우는 중: {proto_output_dir}")
-        for filename in os.listdir(proto_output_dir):
-            file_path = os.path.join(proto_output_dir, filename)
+    if os.path.exists(output_dir):
+        print(f"출력 폴더 비우는 중: {output_dir}")
+        for filename in os.listdir(output_dir):
+            file_path = os.path.join(output_dir, filename)
             if os.path.isdir(file_path):
                 os.rmdir(file_path)
             else:
                 os.remove(file_path)
     else:
-        print(f"출력 폴더 생성: {proto_output_dir}")
-        os.makedirs(proto_output_dir)
+        print(f"출력 폴더 생성: {output_dir}")
+        os.makedirs(output_dir)
 
     print(".proto 컴파일 중...")
-    subprocess.run(["protoc", f'--cpp_out={proto_output_dir}', f'--proto_path={proto_input_dir}', f'--descriptor_set_out={proto_output_dir}\\all.desc', f'In\\*.proto'])
+    subprocess.run(["protoc", f'--cpp_out={output_dir}', f'--proto_path={input_dir}', f'--descriptor_set_out={output_dir}\\..\\all.desc', f'In\\*.proto'])
 
 def parameter_type(field):
     t = field.type
@@ -96,11 +114,11 @@ def parameter_type(field):
 
     return "UNKNOWN_TYPE"
 
-def generate_protocol():
+def generate_protocol(version: str):
     # RatkiniaProtocol
-    with open("Out\\RatkiniaProtocol.gen.h", "w", encoding="utf-8") as out:
+    with open(f"{output_dir}\\RatkiniaProtocol.gen.h", "w", encoding="utf-8") as out:
         fds = descriptor_pb2.FileDescriptorSet()
-        with open(f"{proto_output_dir}\\all.desc", 'rb') as f:
+        with open(f"{output_dir}\\..\\all.desc", 'rb') as f:
             fds.ParseFromString(f.read())
 
         write_top_comment(out)
@@ -115,6 +133,7 @@ def generate_protocol():
         out.write("    };\n\n")
         out.write("    constexpr " + size_type + " MessageMaxSize = 1024 + sizeof(MessageHeader);\n")
         out.write("    constexpr " + size_type + " MessageHeaderSize = sizeof(MessageHeader);\n")
+        out.write("    constexpr const char* const Version = \"" + version + "\";\n")
 
         # 메시지 enum 정의 
         for file_proto in fds.file:
@@ -136,7 +155,7 @@ def generate_protocol():
         ns = os.path.splitext(os.path.basename(file_proto.name))[0]
 
         # Stub
-        with open(f"Out\\{ns}Stub.gen.h", "w", encoding="utf-8") as out:
+        with open(f"{output_dir}\\{ns}Stub.gen.h", "w", encoding="utf-8") as out:
             write_top_comment(out)
             out.write(f"#ifndef {ns.upper()}STUB_GEN_H\n")
             out.write(f"#define {ns.upper()}STUB_GEN_H\n\n")
@@ -216,7 +235,7 @@ def generate_protocol():
             out.write(f"#endif")
 
         # Proxy
-        with open(f"Out\\{ns}Proxy.gen.h", "w", encoding="utf-8") as out:
+        with open(f"{output_dir}\\{ns}Proxy.gen.h", "w", encoding="utf-8") as out:
             write_top_comment(out)
             out.write(f"#ifndef {ns.upper()}PROXY_GEN_H\n")
             out.write(f"#define {ns.upper()}PROXY_GEN_H\n\n")
@@ -263,7 +282,9 @@ def generate_protocol():
             out.write("}\n\n")
             out.write(f"#endif")
 
-proto_files = glob.glob(os.path.join(proto_input_dir, "*.proto"))
+proto_files = glob.glob(os.path.join(input_dir, "*.proto"))
+with open("Version.txt", 'r') as f:
+    version = f.readline().strip()
 run_protoc()
-generate_protocol()
-
+generate_protocol(version)
+copy_to_target()

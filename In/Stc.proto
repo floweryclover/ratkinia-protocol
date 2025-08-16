@@ -1,11 +1,12 @@
+// Stub: Client
+// Proxy: Server
 syntax = "proto3";
 option optimize_for = LITE_RUNTIME;
 
 package RatkiniaProtocol;
 
 message LoginResponse {
-    enum LoginResult
-    {
+    enum LoginResult {
         Success = 0;
         Failure = 1;
         DuplicateContext = 2;
@@ -17,4 +18,14 @@ message LoginResponse {
 message RegisterResponse {
     bool successful = 1;
     string failed_reason = 2;
+}
+
+message CreateCharacterResponse {
+    enum CreateCharacterResult {
+        Success = 0;
+        InvalidNameLength = 1;
+        DuplicateName = 2;
+        UnknownError = 3;
+    }
+    CreateCharacterResult result = 1;
 }
