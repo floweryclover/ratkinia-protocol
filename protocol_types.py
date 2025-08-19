@@ -1,0 +1,11 @@
+class ProtocolTypes():
+    TYPE_INT16 = "type_int16"
+    TYPE_UINT16 = "type_uint16"
+    TYPE_INT32 = "type_int32"
+    TYPE_UINT32 = "type_uint32"
+    TYPE_INT64 = "type_int64"
+    TYPE_UINT64 = "type_uint64"
+    TYPE_SIZE = "type_size"
+    TYPE_BOOL = "type_bool"
+    TYPE_STRING = "type_string"
+    TYPE_SPAN = "type_span"

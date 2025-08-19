@@ -5,6 +5,10 @@ option optimize_for = LITE_RUNTIME;
 
 package RatkiniaProtocol;
 
+message Disconnect {
+    string detail = 1;
+}
+
 message LoginResponse {
     enum LoginResult {
         Success = 0;
@@ -28,4 +32,12 @@ message CreateCharacterResponse {
         UnknownError = 3;
     }
     CreateCharacterResult result = 1;
+}
+
+message SendMyCharacters {
+    message CharacterLoadData {
+        uint32 id = 1;
+        string name = 2;
+    }
+    repeated CharacterLoadData character_load_datas = 1;
 }

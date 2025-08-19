@@ -18,3 +18,5 @@ message RegisterRequest {
 message CreateCharacter {
     string name = 1;
 }
+
+message LoadMyCharacters {}
