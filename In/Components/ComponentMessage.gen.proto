@@ -1,0 +1,16 @@
+//
+// 20250827.150742. Ratkinia Protocol Generator에 의해 생성됨.
+//
+
+syntax = "proto3";
+option optimize_for = LITE_RUNTIME;
+package RatkiniaProtocol;
+
+import "Components/Components.proto";
+
+message ComponentVariant {
+    oneof value {
+        NameTag name_tag = 1;
+    }
+}
+

@@ -2,7 +2,6 @@ syntax = "proto3";
 option optimize_for = LITE_RUNTIME;
 
 package RatkiniaProtocol;
-import "Components/ComponentMessage.gen.proto";
 
 message LoginResponse {
     enum LoginResult {
@@ -65,7 +64,7 @@ message SpawnEntity {
 message AttachComponentTo {
     message Data {
         int32 target_entity = 1;
-        ComponentVariant component_variant = 2;
+        int32 component_static_order = 2;
     }
 
     repeated Data component_attach_datas = 1;

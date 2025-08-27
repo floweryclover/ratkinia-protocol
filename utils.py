@@ -42,7 +42,6 @@ def snake_to_pascal(snake_case_string):
 
 def field_type_to_string(field: DescriptorProto, types: dict) -> str:
     t = field.type
-    is_array = field.label == FieldDescriptorProto.LABEL_REPEATED
     if t == FieldDescriptorProto.TYPE_INT32:
         type = types[ProtocolTypes.TYPE_INT32]
     elif t == FieldDescriptorProto.TYPE_UINT32:
@@ -57,7 +56,4 @@ def field_type_to_string(field: DescriptorProto, types: dict) -> str:
         type = types[ProtocolTypes.TYPE_BOOL]
     else:
         type = parse_only_type_name(field)
-    
-    if is_array:
-        type = f"{types[ProtocolTypes.TYPE_SPAN]}<{type}>"
     return type

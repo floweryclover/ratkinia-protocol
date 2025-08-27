@@ -1,7 +1,5 @@
 from utils import *
 from protocol_types import *
-import os
-import google.protobuf
 
 def generate_stub(output_dir: str,
                   top_comment: str,
@@ -15,7 +13,8 @@ def generate_stub(output_dir: str,
         out.write(f"#ifndef RATKINIAPROTOCOL_{name.upper()}STUB_GEN_H\n")
         out.write(f"#define RATKINIAPROTOCOL_{name.upper()}STUB_GEN_H\n\n")
         out.write(f"#include \"{name}MessageType.gen.h\"\n")
-        out.write(f"#include \"{name}.pb.h\"\n\n")
+        out.write(f"#include \"{name}.pb.h\"\n")
+        out.write(f"#include \"Components/ComponentMessage.gen.pb.h\"\n\n")
 
         out.write(f"namespace RatkiniaProtocol \n")
         out.write(f"{{\n")
@@ -63,8 +62,8 @@ def generate_stub(output_dir: str,
         for msg in messages:
             out.write(f"                case static_cast<int32_t>({name}MessageType::{msg.name}):\n")
             out.write(f"                {{\n")
-            out.write(f"                    {msg.name} {msg.name}Message;\n")
-            out.write(f"                    if (!{msg.name}Message.ParseFromArray({camel_to_pascal_if('body', for_client)}, {camel_to_pascal_if('bodySize', for_client)}))\n")
+            out.write(f"                    {msg.name}* {msg.name}Message = google::protobuf::Arena::CreateMessage<class {msg.name}>(static_cast<TDerivedStub*>(this)->GetArena());\n")
+            out.write(f"                    if (!{msg.name}Message->ParseFromArray({camel_to_pascal_if('body', for_client)}, {camel_to_pascal_if('bodySize', for_client)}))\n")
             out.write(f"                    {{\n")
             out.write(f"                        static_cast<TDerivedStub*>(this)->OnParseMessageFailed({make_context_argument(not for_client and True)}static_cast<{name}MessageType>({camel_to_pascal_if('messageType', for_client)}));\n")
             out.write(f"                        return;\n")
@@ -76,11 +75,11 @@ def generate_stub(output_dir: str,
                         arg_type = f"TArrayView<const {parse_only_type_name(field)}* const>"
                     else:
                         arg_type = f"std::span<const {parse_only_type_name(field)}*>"
-                    args.append(f"{arg_type}{{ {msg.name}Message.{field.name}().data(), {msg.name}Message.{field.name}().size()}}")
+                    args.append(f"{arg_type}{{ {msg.name}Message->{field.name}().data(), {msg.name}Message->{field.name}().size()}}")
                 elif for_client and field.type == FieldDescriptorProto.TYPE_STRING:
-                    args.append(f"FString{{UTF8_TO_TCHAR({msg.name}Message.{field.name}().c_str())}}")
+                    args.append(f"FString{{UTF8_TO_TCHAR({msg.name}Message->{field.name}().c_str())}}")
                 else:
-                    args.append(f"{msg.name}Message.{field.name}()")
+                    args.append(f"{msg.name}Message->{field.name}()")
             out.write(f"                    static_cast<TDerivedStub*>(this)->On{msg.name}({make_context_argument(not for_client, len(args) > 0)}")
             out.write(", ".join(a for a in args))
             out.write(");\n")

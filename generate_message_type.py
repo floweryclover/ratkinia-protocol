@@ -1,5 +1,3 @@
-import os
-import google.protobuf
 from protocol_types import ProtocolTypes
 
 def generate_message_type(output_dir: str,
@@ -18,9 +16,9 @@ def generate_message_type(output_dir: str,
         out.write(f"namespace RatkiniaProtocol \n")
         out.write(f"{{\n")
         out.write(f"    enum class {name}MessageType : {types[ProtocolTypes.TYPE_UINT16]}\n")
-        out.write("    {\n")
-        for idx, msg in enumerate(messages):
-            out.write(f"        {msg.name} = {idx},\n")
-        out.write("    };\n")
+        out.write(f"    {{\n")
+        for msg in messages:
+            out.write(f"        {msg.name},\n")
+        out.write(f"    }};\n")
         out.write(f"}}\n")
         out.write(f"#endif")
