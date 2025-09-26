@@ -1,3 +1,4 @@
 Out/
 __pycache__/
 Version.txt
+In/Components/ComponentMessage.gen.proto
