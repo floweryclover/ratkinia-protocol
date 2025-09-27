@@ -62,11 +62,20 @@ message SpawnEntity {
     repeated Data entity_spawn_datas = 1;
 }
 
-message AttachComponentTo {
+message AttachComponent {
+    message Data {
+        int32 target_entity = 1;
+        int32 component_runtime_order = 2;
+    }
+
+    repeated Data component_attach_datas = 1;
+}
+
+message UpdateComponent {
     message Data {
         int32 target_entity = 1;
         ComponentVariant component_variant = 2;
     }
 
-    repeated Data component_attach_datas = 1;
+    repeated Data component_update_datas = 1;
 }

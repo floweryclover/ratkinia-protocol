@@ -6,3 +6,7 @@ package RatkiniaProtocol;
 message NameTag {
     string name = 1;
 }
+
+message HumanLikeBody {
+    string static_mesh_name = 1;
+}
