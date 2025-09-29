@@ -31,7 +31,7 @@ message CreateCharacterResponse {
 
 message SendMyCharacters {
     message Data {
-        int32 id = 1;
+        uint64 id = 1;
         string name = 2;
     }
     repeated Data character_load_datas = 1;
@@ -39,7 +39,7 @@ message SendMyCharacters {
 
 message OpenWorld {}
 
-message Notificate {
+message Notify {
     enum Type {
         Info = 0;
         Warning = 1;
@@ -55,7 +55,7 @@ message SpawnEntity {
         MyCharacter = 1;
     }
     message Data {
-        int32 entity_id = 1;
+        uint32 entity_id = 1;
         Type type = 2;
     }
 
@@ -64,8 +64,8 @@ message SpawnEntity {
 
 message AttachComponent {
     message Data {
-        int32 target_entity = 1;
-        int32 component_runtime_order = 2;
+        uint32 target_entity = 1;
+        uint32 component_runtime_order = 2;
     }
 
     repeated Data component_attach_datas = 1;
@@ -73,7 +73,7 @@ message AttachComponent {
 
 message UpdateComponent {
     message Data {
-        int32 target_entity = 1;
+        uint32 target_entity = 1;
         ComponentVariant component_variant = 2;
     }
 

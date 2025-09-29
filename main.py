@@ -162,5 +162,5 @@ client_api_patch("Out\\Client\\Include")
 copy_files("Out\\Intermediate", "Out\\Server\\Src", "cc", True)
 copy_files("Out\\Intermediate", "Out\\Server\\Include", "h")
 
-copy_files("Out\\Client\\Src", client_copy_dir)
-copy_files("Out\\Server\\Src", server_copy_dir)
+copy_files("Out\\Client\\Src", client_copy_dir, unpack=True)
+copy_files("Out\\Server\\Src", server_copy_dir, unpack=True)
